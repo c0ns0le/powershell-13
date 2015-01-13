@@ -1,4 +1,6 @@
-﻿#Credentials file
+﻿#Script to automatically import mails into the ticket system (over Exchange)
+
+#Credentials file
 . .\authority.ps1
 
 #SHA2 512bit hash convenience function, returns string with base16 hash
