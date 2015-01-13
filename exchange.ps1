@@ -84,14 +84,16 @@ $psPropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType
 getFolderContent($inbox) | ? { $_.Categories.Contains($catname) } | % {
     # Load the property set to allow us to get to the body
     $_.load($psPropertySet)
-    $tnr = $($_.Subject | Select-String "(SR|IN)-[0-9]{7}").Matches[0]
-    @{ ticket_no = $tnr.ToString(); mailsubject = $_.Subject }
+    $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text)
+    Query "insert into X_SIL_INCOMINGMAIL values ('$($_.From.Address)','$($_.From.Name)','$($_.Subject)','$($_.Body.Text)','$($_.DateTimeReceived)',$hash)"
+    $_.Move($target.Id)
 }
 
 #Replies for mail-in
 getFolderContent($inbox) | ? { $_.Subject -match "(SR|IN)-[0-9]{7}" -and $_.Categories.Contains($catname) } | % {
     # Load the property set to allow us to get to the body
     $_.load($psPropertySet)
-    $tnr = $($_.Subject | Select-String "(SR|IN)-[0-9]{7}").Matches[0]
-    write-host $tnr.ToString().PadRight(20) $_.From.ToString().PadRight(70) $_.Subject 
+    $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text)
+    Query "insert into X_SIL_INCOMINGMAIL values ('$($_.From.Address)','$($_.From.Name)','$($_.Subject)','$($_.Body.Text)','$($_.DateTimeReceived)',$hash)"
+    $_.Move($target.Id)
 }
