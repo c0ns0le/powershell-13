@@ -34,6 +34,7 @@ function getFolderContent($folder) {
     return $folder.FindItems($folder.TotalCount)
 }
 
+#We need to do this the fucked up way, because there is no chance in hell we'll a current version of Powershell on the server
 #Location of Exchange WebServices API DLL File (needs to be at least Version 1.2)
 $assypath = "C:\Program Files\Microsoft\Exchange\Web Services\1.2\Microsoft.Exchange.WebServices.dll"
 $_folder = [Microsoft.Exchange.WebServices.Data.Folder]
@@ -47,9 +48,6 @@ $email    = $authority.servicedeskmailbox.email
 $username = $authority.servicedeskmailbox.username
 $password = $authority.servicedeskmailbox.password
 $domain   = $authority.servicedeskmailbox.domain
-
-#Targeted category name
-$destfoldername = "Import-Test"
 
 #Targeted category name
 $catname = "IMPORT"
@@ -82,6 +80,7 @@ $psPropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType
 
 #Move through inbox items
 
+#New messages for mail-in
 getFolderContent($inbox) | ? { $_.Categories.Contains($catname) } | % {
     # Load the property set to allow us to get to the body
     $_.load($psPropertySet)
@@ -89,6 +88,7 @@ getFolderContent($inbox) | ? { $_.Categories.Contains($catname) } | % {
     @{ ticket_no = $tnr.ToString(); mailsubject = $_.Subject }
 }
 
+#Replies for mail-in
 getFolderContent($inbox) | ? { $_.Subject -match "(SR|IN)-[0-9]{7}" -and $_.Categories.Contains($catname) } | % {
     # Load the property set to allow us to get to the body
     $_.load($psPropertySet)
