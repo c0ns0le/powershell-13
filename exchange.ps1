@@ -41,6 +41,7 @@ function getFolderContent($folder) {
 $assypath = "C:\Program Files\Microsoft\Exchange\Web Services\1.2\Microsoft.Exchange.WebServices.dll"
 $_folder = [Microsoft.Exchange.WebServices.Data.Folder]
 $_wellknownfolder = [Microsoft.Exchange.WebServices.Data.WellKnownFolderName]
+$resolv = [Microsoft.Exchange.WebServices.Data.ConflictResolutionMode]::AutoResolve
 
 #Load assembly file
 [Reflection.Assembly]::LoadFile($assypath)
@@ -94,9 +95,12 @@ $rules = @(
         };
         Action = {
             param($m) 
-            $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text);
-            Query "insert into X_SIL_INCOMINGMAIL values ('$($m.From.Address)','$($m.From.Name)','$($m.Subject)','$($m.Body.Text)','$($m.DateTimeReceived)',$hash)"
-            $m.Move($(findMailboxFolder("Aktenschrank")).Id);
+            $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text); #generate hash
+            Query "insert into X_SIL_INCOMINGMAIL values ('$($m.From.Address)','$($m.From.Name)','$($m.Subject)','$($m.Body.Text)','$($m.DateTimeReceived)',$hash)" #sql insert
+            $m.Categories.Clear() #clear mail categories
+            $m.isRead = $true #clear unread status
+            $m.Update($resolv) #update mail properties
+            $m.Move($(findMailboxFolder("Aktenschrank")).Id); #drop in target folder
         }
     }
 )
@@ -110,6 +114,7 @@ getFolderContent($inbox) |  % {
         # Load the property set to allow us to get to the body
         $_.load($psPropertySet)
         $rule.Action.Invoke($_)
+        write-host "> Item processed"
         }
     }
 }
