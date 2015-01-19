@@ -88,6 +88,17 @@ $psPropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType
 #$_.Subject -match "(SR|IN)-[0-9]{7}" -and
 
 $rules = @(
+    @{
+        Predicate = {
+            param($m)
+            return $($m.Sender.Name -eq "JOBCONTROL@SILHOUETTE.COM") -and $($m.Subject -eq "I5 QSYSOPR Nachricht unbeantwortet")
+        };
+        Action = {
+            param($m)
+            $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text); #generate hash
+            Query "insert into X_SIL_INCOMINGMAIL values ('servicedesk@silhouette.com','Servicedesk','$($m.Subject + ' ' + $m.Body.Text)','','$($m.DateTimeReceived)',$hash)" #sql insert
+        }
+    };
     @{ 
         Predicate = { 
             param($m) 
@@ -97,10 +108,6 @@ $rules = @(
             param($m) 
             $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text); #generate hash
             Query "insert into X_SIL_INCOMINGMAIL values ('$($m.From.Address)','$($m.From.Name)','$($m.Subject)','$($m.Body.Text)','$($m.DateTimeReceived)',$hash)" #sql insert
-            $m.Categories.Clear() #clear mail categories
-            $m.isRead = $true #clear unread status
-            $m.Update($resolv) #update mail properties
-            $m.Move($(findMailboxFolder("Aktenschrank")).Id); #drop in target folder
         }
     }
 )
@@ -115,6 +122,10 @@ getFolderContent($inbox) |  % {
         $_.load($psPropertySet)
         $rule.Action.Invoke($_)
         write-host "> Item processed"
+        $_.Categories.Clear() #clear mail categories
+        $_.isRead = $true #clear unread status
+        $_.Update($resolv) #update mail properties
+        $_.Move($(findMailboxFolder("Aktenschrank")).Id); #drop in target folder
         }
     }
 }
