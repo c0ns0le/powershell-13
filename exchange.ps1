@@ -80,22 +80,36 @@ $target = findMailboxFolder("Aktenschrank")
 $psPropertySet = new-object Microsoft.Exchange.WebServices.Data.PropertySet([Microsoft.Exchange.WebServices.Data.BasePropertySet]::FirstClassProperties)
 $psPropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType]::Text;
 
+
+#Message rules
+#!! Order rules from more specific to less specific !!
+
+#$_.Subject -match "(SR|IN)-[0-9]{7}" -and
+
+$rules = @(
+    @{ 
+        Predicate = { 
+            param($m) 
+            return $m.Categories.Contains($catname) 
+        };
+        Action = {
+            param($m) 
+            $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text);
+            Query "insert into X_SIL_INCOMINGMAIL values ('$($m.From.Address)','$($m.From.Name)','$($m.Subject)','$($m.Body.Text)','$($m.DateTimeReceived)',$hash)"
+            $m.Move($(findMailboxFolder("Aktenschrank")).Id);
+        }
+    }
+)
+
 #Move through inbox items
 
-#New messages for mail-in
-getFolderContent($inbox) | ? { $_.Categories.Contains($catname) } | % {
-    # Load the property set to allow us to get to the body
-    $_.load($psPropertySet)
-    $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text)
-    Query "insert into X_SIL_INCOMINGMAIL values ('$($_.From.Address)','$($_.From.Name)','$($_.Subject)','$($_.Body.Text)','$($_.DateTimeReceived)',$hash)"
-    $_.Move($target.Id)
-}
-
 #Replies for mail-in
-getFolderContent($inbox) | ? { $_.Subject -match "(SR|IN)-[0-9]{7}" -and $_.Categories.Contains($catname) } | % {
-    # Load the property set to allow us to get to the body
-    $_.load($psPropertySet)
-    $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text)
-    Query "insert into X_SIL_INCOMINGMAIL values ('$($_.From.Address)','$($_.From.Name)','$($_.Subject)','$($_.Body.Text)','$($_.DateTimeReceived)',$hash)"
-    $_.Move($target.Id)
+getFolderContent($inbox) |  % {
+    foreach($rule in $rules) {
+        if ( $rule.Predicate.Invoke($_)) {
+        # Load the property set to allow us to get to the body
+        $_.load($psPropertySet)
+        $rule.Action.Invoke($_)
+        }
+    }
 }
