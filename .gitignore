@@ -1,6 +1,9 @@
 # Credentials file
 authority.ps1
 
+# Exchange API folder
+exchange-api
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
