@@ -1,5 +1,16 @@
 ﻿#Script to automatically import mails into the ticket system (over Exchange)
 
+$ErrorActionPreference="SilentlyContinue"
+Stop-Transcript | out-null
+$ErrorActionPreference = "Continue"
+Start-Transcript -path D:\essentials\exchange-output.txt -append
+
+#Load assembly file
+#We need to do this the fucked up way, because there is no chance in hell we'll a current version of Powershell on the server
+#Location of Exchange WebServices API DLL File (needs to be at least Version 1.2)
+$assypath = "D:\essentials\exchange-api\Microsoft.Exchange.WebServices.dll"
+[Reflection.Assembly]::LoadFile($assypath)
+
 #Credentials file
 . .\authority.ps1
 
@@ -28,23 +39,9 @@ function Query($q) {
     return $table
 }
 
-function findMailboxFolder($foldername) {
-    return $root.FindFolders($(New-Object Microsoft.Exchange.WebServices.Data.FolderView(100))) | ? { $_.DisplayName -eq $foldername }
-}
-
-function getFolderContent($folder) {
-    return $folder.FindItems($folder.TotalCount)
-}
-
-#We need to do this the fucked up way, because there is no chance in hell we'll a current version of Powershell on the server
-#Location of Exchange WebServices API DLL File (needs to be at least Version 1.2)
-$assypath = "C:\Program Files\Microsoft\Exchange\Web Services\1.2\Microsoft.Exchange.WebServices.dll"
 $_folder = [Microsoft.Exchange.WebServices.Data.Folder]
 $_wellknownfolder = [Microsoft.Exchange.WebServices.Data.WellKnownFolderName]
 $resolv = [Microsoft.Exchange.WebServices.Data.ConflictResolutionMode]::AutoResolve
-
-#Load assembly file
-[Reflection.Assembly]::LoadFile($assypath)
 
 #Mailbox information
 $email    = $authority.servicedeskmailbox.email
@@ -74,6 +71,14 @@ $s.AutodiscoverUrl($email)
 $inbox = $_folder::Bind($s,$_wellknownfolder::Inbox)
 $root = $_folder::Bind($s,$_wellknownfolder::MsgFolderRoot)
 
+function findMailboxFolder($foldername) {
+    return $root.FindFolders($(New-Object Microsoft.Exchange.WebServices.Data.FolderView(100))) | ? { $_.DisplayName -eq $foldername }
+}
+
+function getFolderContent($folder) {
+    return $folder.FindItems($folder.TotalCount)
+}
+
 #Identify folder where processed tickets will be moved to
 $target = findMailboxFolder("Aktenschrank")
 
@@ -88,17 +93,17 @@ $psPropertySet.RequestedBodyType = [Microsoft.Exchange.WebServices.Data.BodyType
 #$_.Subject -match "(SR|IN)-[0-9]{7}" -and
 
 $rules = @(
-    @{
-        Predicate = {
-            param($m)
-            return $($m.Sender.Name -eq "JOBCONTROL@SILHOUETTE.COM") -and $($m.Subject -eq "I5 QSYSOPR Nachricht unbeantwortet")
-        };
-        Action = {
-            param($m)
-            $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text); #generate hash
-            Query "insert into X_SIL_INCOMINGMAIL values ('servicedesk@silhouette.com','Servicedesk','$($m.Subject + ' ' + $m.Body.Text)','','$($m.DateTimeReceived)',$hash)" #sql insert
-        }
-    };
+#    @{
+#        Predicate = {
+#            param($m)
+#            return $($m.Sender.Name -eq "JOBCONTROL@SILHOUETTE.COM") -and $($m.Subject -eq "I5 QSYSOPR Nachricht unbeantwortet")
+#        };
+#        Action = {
+#            param($m)
+#            $hash = Hash $($_.From.Address + $_.Subject + $_.DateTimeReceived.tostring() + $_.Body.Text); #generate hash
+#            Query "insert into X_SIL_INCOMINGMAIL values ('servicedesk@silhouette.com','Servicedesk','$($m.Subject + ' ' + $m.Body.Text)','','$($m.DateTimeReceived)',$hash)" #sql insert
+#        }
+#    };
     @{ 
         Predicate = { 
             param($m) 
@@ -115,7 +120,7 @@ $rules = @(
 #Move through inbox items
 
 #Replies for mail-in
-getFolderContent($inbox) |  % {
+Start-Sleep -s 5 | getFolderContent($inbox) |  % {
     foreach($rule in $rules) {
         if ( $rule.Predicate.Invoke($_)) {
         # Load the property set to allow us to get to the body
@@ -129,3 +134,5 @@ getFolderContent($inbox) |  % {
         }
     }
 }
+
+Stop-Transcript
