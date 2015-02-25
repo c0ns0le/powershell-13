@@ -8,11 +8,12 @@ Start-Transcript -path D:\essentials\exchange-output.txt -append
 #Load assembly file
 #We need to do this the fucked up way, because there is no chance in hell we'll a current version of Powershell on the server
 #Location of Exchange WebServices API DLL File (needs to be at least Version 1.2)
-$assypath = "D:\essentials\exchange-api\Microsoft.Exchange.WebServices.dll"
-[Reflection.Assembly]::LoadFile($assypath)
+[Reflection.Assembly]::LoadFile($path.exchangeassy)
 
 #Credentials file
 . .\authority.ps1
+#Path file
+. .\conf.ps1
 
 #SHA2 512bit hash convenience function, returns string with base16 hash
 function hash($m) {
